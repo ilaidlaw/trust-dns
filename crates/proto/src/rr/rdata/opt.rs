@@ -26,6 +26,8 @@ use crate::serialize::binary::*;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::SupportedAlgorithms;
 
+use crate::rr::rdata::ecs::EdnsClientSubnet;
+
 /// The OPT record type is used for ExtendedDNS records.
 ///
 /// These allow for additional information to be associated with the DNS request that otherwise
@@ -403,6 +405,8 @@ pub enum EdnsOption {
     #[cfg(feature = "dnssec")]
     N3U(SupportedAlgorithms),
 
+    ECS(EdnsClientSubnet),
+
     /// Unknown, used to deal with unknown or unsupported codes
     Unknown(u16, Vec<u8>),
 }
@@ -415,6 +419,7 @@ impl EdnsOption {
             EdnsOption::DAU(ref algorithms)
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.len(),
+            EdnsOption::ECS(ref ecs) => ecs.len(),
             EdnsOption::Unknown(_, ref data) => data.len() as u16, // TODO: should we verify?
         }
     }
@@ -426,6 +431,7 @@ impl EdnsOption {
             EdnsOption::DAU(ref algorithms)
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.is_empty(),
+            EdnsOption::ECS(_) => false,
             EdnsOption::Unknown(_, ref data) => data.is_empty(),
         }
     }
@@ -438,6 +444,7 @@ impl BinEncodable for EdnsOption {
             EdnsOption::DAU(ref algorithms)
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.emit(encoder),
+            EdnsOption::ECS(ref ecs) => ecs.emit(encoder),
             EdnsOption::Unknown(_, ref data) => encoder.emit_vec(data), // gah, clone needed or make a crazy api.
         }
     }
@@ -466,6 +473,7 @@ impl<'a> From<&'a EdnsOption> for Vec<u8> {
             EdnsOption::DAU(ref algorithms)
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.into(),
+            EdnsOption::ECS(ref ecs) => ecs.into(),
             EdnsOption::Unknown(_, ref data) => data.clone(), // gah, clone needed or make a crazy api.
         }
     }
@@ -480,6 +488,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
             EdnsOption::DHU(..) => EdnsCode::DHU,
             #[cfg(feature = "dnssec")]
             EdnsOption::N3U(..) => EdnsCode::N3U,
+            EdnsOption::ECS(..) => EdnsCode::Subnet,
             EdnsOption::Unknown(code, _) => code.into(),
         }
     }
